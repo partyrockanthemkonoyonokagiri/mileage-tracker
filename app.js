@@ -278,12 +278,6 @@ btnAddWaypoint.addEventListener('click', () => {
 // Places オートコンプリートの初期化
 function initAutocomplete() {
   if (typeof google === 'undefined') return;
-  // 非表示の地図要素を初期化して「マップが読み込まれませんでした」警告を抑制
-  const mapDiv = document.createElement('div');
-  mapDiv.style.display = 'none';
-  document.body.appendChild(mapDiv);
-  new google.maps.Map(mapDiv, { center: { lat: 35.6762, lng: 139.6503 }, zoom: 10 });
-
   [fOrigin, fDestination].forEach(input => {
     new google.maps.places.Autocomplete(input, { componentRestrictions: { country: 'jp' } });
   });
