@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>データエクスポート</title>
+  <style>
+    body { font-family: sans-serif; max-width: 480px; margin: 60px auto; padding: 0 20px; color: #1e293b; }
+    h1 { font-size: 1.2rem; margin-bottom: 24px; }
+    button { padding: 12px 24px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-right: 10px; margin-bottom: 10px; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    #status { margin-top: 16px; font-size: 0.9rem; color: #64748b; }
+    .error { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>走行距離データ エクスポート</h1>
+  <button id="btn-json">JSON でダウンロード</button>
+  <button id="btn-csv">CSV でダウンロード</button>
+  <div id="status"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getFirestore, collection, getDocs, query, orderBy }
+      from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyAkqjQHT0iX7QCBts_pmkhaOWXNWY7V25U",
+      authDomain:        "mileage-tracker-1dd8f.firebaseapp.com",
+      projectId:         "mileage-tracker-1dd8f",
+      storageBucket:     "mileage-tracker-1dd8f.firebasestorage.app",
+      messagingSenderId: "747490982242",
+      appId:             "1:747490982242:web:7a93e86a45eb9d1105543b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+    const status = document.getElementById('status');
+
+    async function fetchAll() {
+      status.textContent = '読み込み中...';
+      const q    = query(collection(db, 'mileage_records'), orderBy('date', 'asc'));
+      const snap = await getDocs(q);
+      const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      status.textContent = `${records.length} 件取得しました。`;
+      return records;
+    }
+
+    function download(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('btn-json').addEventListener('click', async () => {
+      try {
+        const records = await fetchAll();
+        download(JSON.stringify(records, null, 2), 'mileage_records.json', 'application/json');
+      } catch (e) {
+        status.innerHTML = `<span class="error">エラー: ${e.message}</span>`;
+      }
+    });
+
+    document.getElementById('btn-csv').addEventListener('click', async () => {
+      try {
+        const records = await fetchAll();
+        const header  = ['id','date','dateEnd','type','startOdometer','endOdometer','distance','route','memo'];
+        const rows    = records.map(r =>
+          header.map(k => {
+            const v = r[k] ?? '';
+            return `"${String(v).replace(/"/g, '""')}"`;
+          }).join(',')
+        );
+        const csv = '\uFEFF' + [header.join(','), ...rows].join('\r\n');
+        download(csv, 'mileage_records.csv', 'text/csv');
+      } catch (e) {
+        status.innerHTML = `<span class="error">エラー: ${e.message}</span>`;
+      }
+    });
+  </script>
+</body>
+</html>
