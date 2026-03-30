@@ -22,8 +22,18 @@
     <section id="tab-input" class="tab-pane active">
       <form id="entry-form">
         <div class="field">
-          <label for="f-date">日付</label>
-          <input type="date" id="f-date" required>
+          <div class="date-label-row">
+            <label for="f-date">日付</label>
+            <label class="toggle-label">
+              <input type="checkbox" id="f-range-toggle">
+              <span>期間で入力</span>
+            </label>
+          </div>
+          <div class="date-range-row">
+            <input type="date" id="f-date" required>
+            <span class="date-sep hidden" id="f-sep">〜</span>
+            <input type="date" id="f-date-end" class="hidden">
+          </div>
         </div>
         <div class="field">
           <label>用途</label>
@@ -97,8 +107,18 @@
       <form id="edit-form">
         <input type="hidden" id="e-id">
         <div class="field">
-          <label for="e-date">日付</label>
-          <input type="date" id="e-date" required>
+          <div class="date-label-row">
+            <label for="e-date">日付</label>
+            <label class="toggle-label">
+              <input type="checkbox" id="e-range-toggle">
+              <span>期間で入力</span>
+            </label>
+          </div>
+          <div class="date-range-row">
+            <input type="date" id="e-date" required>
+            <span class="date-sep hidden" id="e-sep">〜</span>
+            <input type="date" id="e-date-end" class="hidden">
+          </div>
         </div>
         <div class="field">
           <label>用途</label>

@@ -513,6 +513,57 @@ form {
 .toast.show { opacity: 1; }
 
 /* ============================================================
+   Date Range
+   ============================================================ */
+.date-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.date-label-row label:first-child {
+  margin-bottom: 0;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.date-range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-range-row input[type="date"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.date-sep {
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hidden { display: none !important; }
+
+/* ============================================================
    Misc
    ============================================================ */
 .loading, .empty {

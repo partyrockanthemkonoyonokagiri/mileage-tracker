@@ -47,6 +47,9 @@ const tabPanes         = document.querySelectorAll('.tab-pane');
 // Entry form
 const entryForm        = document.getElementById('entry-form');
 const fDate            = document.getElementById('f-date');
+const fDateEnd         = document.getElementById('f-date-end');
+const fRangeToggle     = document.getElementById('f-range-toggle');
+const fSep             = document.getElementById('f-sep');
 const fStart           = document.getElementById('f-start');
 const fEnd             = document.getElementById('f-end');
 const fDistance        = document.getElementById('f-distance');
@@ -67,6 +70,9 @@ const summaryContainer = document.getElementById('summary-container');
 const modal            = document.getElementById('modal');
 const editForm         = document.getElementById('edit-form');
 const eDate            = document.getElementById('e-date');
+const eDateEnd         = document.getElementById('e-date-end');
+const eRangeToggle     = document.getElementById('e-range-toggle');
+const eSep             = document.getElementById('e-sep');
 const eStart           = document.getElementById('e-start');
 const eEnd             = document.getElementById('e-end');
 const eDistance        = document.getElementById('e-distance');
@@ -143,6 +149,21 @@ tabBtns.forEach(btn => {
 });
 
 // ============================================================
+// Date Range Toggle
+// ============================================================
+function setupRangeToggle(toggle, sep, endInput) {
+  toggle.addEventListener('change', () => {
+    const on = toggle.checked;
+    sep.classList.toggle('hidden', !on);
+    endInput.classList.toggle('hidden', !on);
+    if (!on) endInput.value = '';
+  });
+}
+
+setupRangeToggle(fRangeToggle, fSep, fDateEnd);
+setupRangeToggle(eRangeToggle, eSep, eDateEnd);
+
+// ============================================================
 // Entry Form
 // ============================================================
 function fillLastOdometer() {
@@ -162,20 +183,26 @@ function fillLastOdometer() {
 entryForm.addEventListener('submit', async e => {
   e.preventDefault();
 
-  const start = parseFloat(fStart.value);
-  const end   = parseFloat(fEnd.value);
+  const start   = parseFloat(fStart.value);
+  const end     = parseFloat(fEnd.value);
+  const dateEnd = fRangeToggle.checked ? fDateEnd.value : null;
 
   if (end < start) {
     showToast('終了距離はスタート距離以上にしてください');
     return;
   }
+  if (dateEnd && dateEnd < fDate.value) {
+    showToast('終了日はスタート日以降にしてください');
+    return;
+  }
 
   const data = buildRecord({
-    date:     fDate.value,
-    type:     document.querySelector('input[name="type"]:checked').value,
+    date:    fDate.value,
+    dateEnd,
+    type:    document.querySelector('input[name="type"]:checked').value,
     start, end,
-    route:    fRoute.value.trim(),
-    memo:     fMemo.value.trim()
+    route:   fRoute.value.trim(),
+    memo:    fMemo.value.trim()
   });
 
   const btn = entryForm.querySelector('button[type="submit"]');
@@ -185,12 +212,16 @@ entryForm.addEventListener('submit', async e => {
     await createRecord(data);
     showToast('保存しました');
     // キャリーオーバー: 終了距離を次のスタートへ
-    fStart.value = data.endOdometer;
-    fEnd.value   = '';
+    fStart.value    = data.endOdometer;
+    fEnd.value      = '';
     fDistance.value = '';
-    fRoute.value = '';
-    fMemo.value  = '';
-    fDate.value  = todayStr();
+    fRoute.value    = '';
+    fMemo.value     = '';
+    fDate.value     = todayStr();
+    fDateEnd.value  = '';
+    fRangeToggle.checked = false;
+    fSep.classList.add('hidden');
+    fDateEnd.classList.add('hidden');
     document.querySelector('input[name="type"][value="private"]').checked = true;
   } catch (err) {
     showToast('保存に失敗しました: ' + err.message);
@@ -250,10 +281,14 @@ function renderCard(r) {
   const typeName = isB ? '事業用' : 'プライベート';
   const badgeCls = isB ? 'badge-business' : 'badge-private';
 
+  const dateLabel = r.dateEnd
+    ? `${formatDate(r.date)} 〜 ${formatDate(r.dateEnd)}`
+    : formatDate(r.date);
+
   return `
     <div class="record-card">
       <div class="record-header">
-        <span class="record-date">${formatDate(r.date)}</span>
+        <span class="record-date">${dateLabel}</span>
         <span class="badge ${badgeCls}">${typeName}</span>
       </div>
       <div class="record-distance">${fmtKm(r.distance)}<span class="unit">km</span></div>
@@ -275,14 +310,21 @@ function openEditModal(id) {
   const r = allRecords.find(r => r.id === id);
   if (!r) return;
 
-  editingId      = id;
-  eDate.value    = r.date;
-  eStart.value   = r.startOdometer;
-  eEnd.value     = r.endOdometer;
+  editingId       = id;
+  eDate.value     = r.date;
+  eStart.value    = r.startOdometer;
+  eEnd.value      = r.endOdometer;
   eDistance.value = r.distance;
-  eRoute.value   = r.route || '';
-  eMemo.value    = r.memo  || '';
+  eRoute.value    = r.route || '';
+  eMemo.value     = r.memo  || '';
   document.querySelector(`input[name="e-type"][value="${r.type}"]`).checked = true;
+
+  // 期間設定の復元
+  const hasRange = !!r.dateEnd;
+  eRangeToggle.checked = hasRange;
+  eSep.classList.toggle('hidden', !hasRange);
+  eDateEnd.classList.toggle('hidden', !hasRange);
+  eDateEnd.value = r.dateEnd || '';
 
   modal.classList.remove('hidden');
   modal.querySelector('.modal-box').scrollTop = 0;
@@ -295,20 +337,26 @@ function openEditModal(id) {
 editForm.addEventListener('submit', async e => {
   e.preventDefault();
 
-  const start = parseFloat(eStart.value);
-  const end   = parseFloat(eEnd.value);
+  const start   = parseFloat(eStart.value);
+  const end     = parseFloat(eEnd.value);
+  const dateEnd = eRangeToggle.checked ? eDateEnd.value : null;
 
   if (end < start) {
     showToast('終了距離はスタート距離以上にしてください');
     return;
   }
+  if (dateEnd && dateEnd < eDate.value) {
+    showToast('終了日はスタート日以降にしてください');
+    return;
+  }
 
   const data = buildRecord({
-    date:  eDate.value,
-    type:  document.querySelector('input[name="e-type"]:checked').value,
+    date:    eDate.value,
+    dateEnd,
+    type:    document.querySelector('input[name="e-type"]:checked').value,
     start, end,
-    route: eRoute.value.trim(),
-    memo:  eMemo.value.trim()
+    route:   eRoute.value.trim(),
+    memo:    eMemo.value.trim()
   });
 
   const btn = editForm.querySelector('button[type="submit"]');
@@ -436,9 +484,10 @@ function renderSummary() {
 // ============================================================
 // Helpers
 // ============================================================
-function buildRecord({ date, type, start, end, route, memo }) {
+function buildRecord({ date, dateEnd, type, start, end, route, memo }) {
   return {
     date,
+    dateEnd:       dateEnd || null,
     type,
     startOdometer: start,
     endOdometer:   end,
