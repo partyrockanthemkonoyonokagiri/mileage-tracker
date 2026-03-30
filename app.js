@@ -49,9 +49,10 @@ function userCol(uid) {
 // ============================================================
 // State
 // ============================================================
-let allRecords = [];
-let editingId  = null;
-let currentUid = null;
+let allRecords      = [];
+let editingId       = null;
+let currentUid      = null;
+let routeCalculated = false; // ルート距離が計算済みかどうか
 
 // ============================================================
 // DOM
@@ -285,6 +286,12 @@ function initAutocomplete() {
 // DOMロード後にオートコンプリート初期化（Maps APIのコールバックより遅延する場合のフォールバック）
 window.addEventListener('load', () => { setTimeout(initAutocomplete, 500); });
 
+// 出発地・到着地・経由地が変わったら計算済みフラグをリセット
+[fOrigin, fDestination].forEach(el =>
+  el.addEventListener('input', () => { routeCalculated = false; fDistance.value = ''; })
+);
+fWaypointsContainer.addEventListener('input', () => { routeCalculated = false; fDistance.value = ''; });
+
 // ルート距離計算
 btnCalcRoute.addEventListener('click', async () => {
   const origin      = fOrigin.value.trim();
@@ -299,10 +306,12 @@ btnCalcRoute.addEventListener('click', async () => {
 
   btnCalcRoute.disabled    = true;
   btnCalcRoute.textContent = '計算中...';
+  routeCalculated          = false;
 
   try {
     const distanceKm = await calcRouteDistance(origin, destination, waypoints);
     fDistance.value = distanceKm;
+    routeCalculated = true;
 
     // 経路欄に自動入力
     const stops = [origin, ...waypoints, destination];
@@ -310,6 +319,7 @@ btnCalcRoute.addEventListener('click', async () => {
 
     showToast(`距離: ${distanceKm} km`);
   } catch (err) {
+    fDistance.value = '';
     showToast('距離の取得に失敗しました: ' + err.message);
   } finally {
     btnCalcRoute.disabled    = false;
@@ -398,9 +408,15 @@ entryForm.addEventListener('submit', async e => {
     showToast('終了距離はスタート距離以上にしてください');
     return;
   }
-  if (isRoute && isNaN(distance)) {
-    showToast('先に「距離を計算」ボタンを押してください');
-    return;
+  if (isRoute) {
+    if (!fOrigin.value.trim() || !fDestination.value.trim()) {
+      showToast('出発地と到着地を入力してください');
+      return;
+    }
+    if (!routeCalculated || isNaN(distance)) {
+      showToast('「距離を計算」ボタンを押してから保存してください');
+      return;
+    }
   }
   if (dateEnd && dateEnd < fDate.value) {
     showToast('終了日はスタート日以降にしてください');
@@ -439,6 +455,7 @@ entryForm.addEventListener('submit', async e => {
     fOrigin.value      = '';
     fDestination.value = '';
     fWaypointsContainer.innerHTML = '';
+    routeCalculated = false;
     document.querySelector('input[name="type"][value="private"]').checked = true;
   } catch (err) {
     showToast('保存に失敗しました: ' + err.message);
