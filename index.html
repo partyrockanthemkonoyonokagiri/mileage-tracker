@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>走行距離記録</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>走行距離記録</h1>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="input">入力</button>
+    <button class="tab-btn" data-tab="records">記録一覧</button>
+    <button class="tab-btn" data-tab="summary">サマリー</button>
+  </nav>
+
+  <main>
+    <!-- 入力タブ -->
+    <section id="tab-input" class="tab-pane active">
+      <form id="entry-form">
+        <div class="field">
+          <label for="f-date">日付</label>
+          <input type="date" id="f-date" required>
+        </div>
+        <div class="field">
+          <label>用途</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="type" value="private" checked>
+              <span>プライベート</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="type" value="business">
+              <span>事業用</span>
+            </label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-start">スタート総走行距離 (km)</label>
+          <input type="number" id="f-start" min="0" step="0.1" placeholder="0" required>
+        </div>
+        <div class="field">
+          <label for="f-end">終了総走行距離 (km)</label>
+          <input type="number" id="f-end" min="0" step="0.1" placeholder="0" required>
+        </div>
+        <div class="field">
+          <label for="f-distance">走行距離 (km)</label>
+          <input type="number" id="f-distance" readonly class="readonly">
+        </div>
+        <div class="field">
+          <label for="f-route">経路 <span class="optional">任意</span></label>
+          <input type="text" id="f-route" placeholder="例：自宅 → 客先">
+        </div>
+        <div class="field">
+          <label for="f-memo">メモ <span class="optional">任意</span></label>
+          <textarea id="f-memo" rows="2" placeholder="メモを入力"></textarea>
+        </div>
+        <button type="submit" class="btn-primary">保存</button>
+      </form>
+    </section>
+
+    <!-- 記録一覧タブ -->
+    <section id="tab-records" class="tab-pane">
+      <div class="filter-bar">
+        <input type="month" id="r-month">
+        <select id="r-type">
+          <option value="all">すべて</option>
+          <option value="private">プライベート</option>
+          <option value="business">事業用</option>
+        </select>
+      </div>
+      <div id="records-total" class="records-total"></div>
+      <div id="records-container">
+        <p class="loading">読み込み中...</p>
+      </div>
+    </section>
+
+    <!-- サマリータブ -->
+    <section id="tab-summary" class="tab-pane">
+      <div class="filter-bar">
+        <select id="s-year"></select>
+      </div>
+      <div id="summary-container">
+        <p class="loading">読み込み中...</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- 編集モーダル -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-overlay"></div>
+    <div class="modal-box">
+      <h2>記録を編集</h2>
+      <form id="edit-form">
+        <input type="hidden" id="e-id">
+        <div class="field">
+          <label for="e-date">日付</label>
+          <input type="date" id="e-date" required>
+        </div>
+        <div class="field">
+          <label>用途</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="e-type" value="private">
+              <span>プライベート</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="e-type" value="business">
+              <span>事業用</span>
+            </label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="e-start">スタート総走行距離 (km)</label>
+          <input type="number" id="e-start" min="0" step="0.1" required>
+        </div>
+        <div class="field">
+          <label for="e-end">終了総走行距離 (km)</label>
+          <input type="number" id="e-end" min="0" step="0.1" required>
+        </div>
+        <div class="field">
+          <label for="e-distance">走行距離 (km)</label>
+          <input type="number" id="e-distance" readonly class="readonly">
+        </div>
+        <div class="field">
+          <label for="e-route">経路 <span class="optional">任意</span></label>
+          <input type="text" id="e-route">
+        </div>
+        <div class="field">
+          <label for="e-memo">メモ <span class="optional">任意</span></label>
+          <textarea id="e-memo" rows="2"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">保存</button>
+          <button type="button" id="modal-cancel" class="btn-secondary">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
