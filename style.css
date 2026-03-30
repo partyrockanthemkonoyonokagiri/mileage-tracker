@@ -34,6 +34,100 @@ html, body {
 }
 
 /* ============================================================
+   Auth Screen
+   ============================================================ */
+.auth-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+
+.auth-box {
+  background: white;
+  border-radius: 12px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.auth-box h1 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--primary);
+  margin-bottom: 20px;
+}
+
+.auth-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.auth-tab-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.auth-tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.btn-google {
+  width: 100%;
+  padding: 11px;
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-google:hover { background: var(--bg); border-color: #aaa; }
+
+.auth-error {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--danger);
+  min-height: 20px;
+  text-align: center;
+}
+
+/* ============================================================
    Header
    ============================================================ */
 header {
@@ -42,7 +136,8 @@ header {
   height: var(--header-h);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 0 16px;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -54,6 +149,19 @@ header h1 {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+
+.btn-logout {
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-logout:hover { background: rgba(255,255,255,0.3); }
 
 /* ============================================================
    Tabs

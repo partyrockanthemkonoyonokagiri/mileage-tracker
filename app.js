@@ -15,6 +15,15 @@ import {
   orderBy,
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {
+  getAuth,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey:            "AIzaSyAkqjQHT0iX7QCBts_pmkhaOWXNWY7V25U",
@@ -28,19 +37,37 @@ const firebaseConfig = {
 // ============================================================
 // Init Firebase
 // ============================================================
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
-const COL = 'mileage_records';
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+
+// ユーザーごとのコレクションパス
+function userCol(uid) {
+  return collection(db, 'users', uid, 'mileage_records');
+}
 
 // ============================================================
 // State
 // ============================================================
 let allRecords = [];
 let editingId  = null;
+let currentUid = null;
 
 // ============================================================
 // DOM
 // ============================================================
+// Auth screen
+const authScreen       = document.getElementById('auth-screen');
+const appScreen        = document.getElementById('app-screen');
+const authForm         = document.getElementById('auth-form');
+const authEmail        = document.getElementById('a-email');
+const authPassword     = document.getElementById('a-password');
+const authSubmit       = document.getElementById('auth-submit');
+const authError        = document.getElementById('auth-error');
+const authTabBtns      = document.querySelectorAll('.auth-tab-btn');
+const btnLogout        = document.getElementById('btn-logout');
+const btnGoogleLogin   = document.getElementById('btn-google-login');
+
 const tabBtns          = document.querySelectorAll('.tab-btn');
 const tabPanes         = document.querySelectorAll('.tab-pane');
 
@@ -83,16 +110,83 @@ const modalCancel      = document.getElementById('modal-cancel');
 const toast            = document.getElementById('toast');
 
 // ============================================================
+// Auth UI
+// ============================================================
+let authMode = 'login';
+
+authTabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    authMode = btn.dataset.auth;
+    authTabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    authSubmit.textContent = authMode === 'login' ? 'ログイン' : '登録';
+    authError.textContent  = '';
+  });
+});
+
+authForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  authError.textContent = '';
+  setLoading(authSubmit, true, authMode === 'login' ? 'ログイン中...' : '登録中...');
+
+  try {
+    if (authMode === 'login') {
+      await signInWithEmailAndPassword(auth, authEmail.value, authPassword.value);
+    } else {
+      await createUserWithEmailAndPassword(auth, authEmail.value, authPassword.value);
+    }
+  } catch (err) {
+    authError.textContent = authErrorMsg(err.code);
+    setLoading(authSubmit, false, authMode === 'login' ? 'ログイン' : '登録');
+  }
+});
+
+btnLogout.addEventListener('click', () => signOut(auth));
+
+btnGoogleLogin.addEventListener('click', async () => {
+  authError.textContent = '';
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch (err) {
+    if (err.code !== 'auth/popup-closed-by-user') {
+      authError.textContent = authErrorMsg(err.code);
+    }
+  }
+});
+
+function authErrorMsg(code) {
+  const map = {
+    'auth/invalid-email':            'メールアドレスの形式が正しくありません',
+    'auth/user-not-found':           'メールアドレスまたはパスワードが違います',
+    'auth/wrong-password':           'メールアドレスまたはパスワードが違います',
+    'auth/invalid-credential':       'メールアドレスまたはパスワードが違います',
+    'auth/email-already-in-use':     'このメールアドレスは既に使用されています',
+    'auth/weak-password':            'パスワードは6文字以上にしてください',
+    'auth/too-many-requests':        'しばらく時間をおいて再試行してください',
+  };
+  return map[code] || `エラーが発生しました (${code})`;
+}
+
+// ============================================================
 // Bootstrap
 // ============================================================
-async function init() {
-  if (firebaseConfig.apiKey === 'YOUR_API_KEY') {
-    recordsContainer.innerHTML =
-      '<p class="empty">⚠️ app.js の firebaseConfig を設定してください</p>';
-    summaryContainer.innerHTML = '<p class="empty">⚠️ Firebase 未設定</p>';
-    return;
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    currentUid = user.uid;
+    authScreen.classList.add('hidden');
+    appScreen.classList.remove('hidden');
+    await startApp();
+  } else {
+    currentUid = null;
+    authScreen.classList.remove('hidden');
+    appScreen.classList.add('hidden');
+    authPassword.value    = '';
+    authError.textContent = '';
+    setLoading(authSubmit, false, authMode === 'login' ? 'ログイン' : '登録');
   }
+});
 
+async function startApp() {
   fDate.value  = todayStr();
   rMonth.value = currentMonthStr();
   populateYearSelector();
@@ -113,23 +207,23 @@ async function init() {
 // Firestore CRUD
 // ============================================================
 async function loadAllRecords() {
-  const q        = query(collection(db, COL), orderBy('date', 'desc'));
+  const q        = query(userCol(currentUid), orderBy('date', 'desc'));
   const snapshot = await getDocs(q);
   allRecords     = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 async function createRecord(data) {
-  await addDoc(collection(db, COL), { ...data, createdAt: serverTimestamp() });
+  await addDoc(userCol(currentUid), { ...data, createdAt: serverTimestamp() });
   await loadAllRecords();
 }
 
 async function saveEditedRecord(id, data) {
-  await updateDoc(doc(db, COL, id), data);
+  await updateDoc(doc(db, 'users', currentUid, 'mileage_records', id), data);
   await loadAllRecords();
 }
 
 async function removeRecord(id) {
-  await deleteDoc(doc(db, COL, id));
+  await deleteDoc(doc(db, 'users', currentUid, 'mileage_records', id));
   await loadAllRecords();
 }
 

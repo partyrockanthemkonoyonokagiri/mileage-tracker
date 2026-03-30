@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>データインポート</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #2563eb;
+      --danger:  #ef4444;
+      --success: #10b981;
+      --border:  #e2e8f0;
+      --bg:      #f1f5f9;
+      --text:    #1e293b;
+      --muted:   #64748b;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+      padding: 24px 16px;
+    }
+    .box {
+      background: white; border-radius: 12px; padding: 28px 24px;
+      width: 100%; max-width: 480px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    h1 { font-size: 1.2rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+    .sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 24px; }
+
+    /* Auth */
+    .auth-section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+    label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; }
+    input[type="email"], input[type="password"] {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 1rem; margin-bottom: 12px;
+    }
+    input:focus { outline: none; border-color: var(--primary); }
+
+    /* File drop zone */
+    .dropzone {
+      border: 2px dashed var(--border); border-radius: 8px;
+      padding: 32px; text-align: center; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 16px;
+    }
+    .dropzone.over { border-color: var(--primary); background: rgba(37,99,235,0.05); }
+    .dropzone p { font-size: 0.9rem; color: var(--muted); }
+    .dropzone .file-name { font-size: 0.85rem; color: var(--primary); font-weight: 600; margin-top: 6px; }
+    input[type="file"] { display: none; }
+
+    /* Format selector */
+    .format-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    .format-btn {
+      flex: 1; padding: 8px; border: 1.5px solid var(--border); border-radius: 8px;
+      background: white; font-size: 0.875rem; cursor: pointer; transition: all 0.15s;
+    }
+    .format-btn.active { border-color: var(--primary); background: rgba(37,99,235,0.07); color: var(--primary); font-weight: 600; }
+
+    /* Preview */
+    #preview {
+      font-size: 0.8rem; background: var(--bg); border-radius: 8px;
+      padding: 12px; margin-bottom: 16px; display: none; max-height: 160px; overflow-y: auto;
+    }
+    #preview table { width: 100%; border-collapse: collapse; }
+    #preview th, #preview td { padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    #preview th { font-weight: 600; color: var(--muted); }
+
+    button.btn {
+      width: 100%; padding: 12px; border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+    }
+    button.btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+
+    /* Status */
+    #status { margin-top: 14px; font-size: 0.875rem; min-height: 20px; text-align: center; }
+    .ok  { color: var(--success); font-weight: 600; }
+    .err { color: var(--danger); }
+
+    .user-info { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
+    .logout-link { color: var(--primary); cursor: pointer; text-decoration: underline; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <h1>データインポート</h1>
+  <p class="sub">エクスポートしたJSON/CSVファイルを既存アカウントにインポートします</p>
+
+  <!-- ログイン -->
+  <div id="auth-section" class="auth-section">
+    <label for="i-email">メールアドレス</label>
+    <input type="email" id="i-email" placeholder="example@email.com">
+    <label for="i-password">パスワード</label>
+    <input type="password" id="i-password" placeholder="パスワード">
+    <button class="btn btn-primary" id="btn-login">ログイン</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0;color:#64748b;font-size:0.8rem">
+      <span style="flex:1;height:1px;background:#e2e8f0"></span>または<span style="flex:1;height:1px;background:#e2e8f0"></span>
+    </div>
+    <button class="btn" id="btn-google-login" style="background:white;border:1.5px solid #e2e8f0;color:#1e293b;display:flex;align-items:center;justify-content:center;gap:10px">
+      <svg width="18" height="18" viewbox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Googleでログイン
+    </button>
+  </div>
+
+  <!-- インポート（ログイン後に表示） -->
+  <div id="import-section" style="display:none">
+    <p class="user-info" id="user-info"></p>
+
+    <div class="format-row">
+      <button class="format-btn active" data-fmt="json">JSON</button>
+      <button class="format-btn" data-fmt="csv">CSV</button>
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      <p>ファイルをドラッグ＆ドロップ<br>またはクリックして選択</p>
+      <p class="file-name" id="file-name"></p>
+      <input type="file" id="file-input" accept=".json,.csv">
+    </div>
+
+    <div id="preview"></div>
+
+    <button class="btn btn-primary" id="btn-import" disabled>インポート実行</button>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, collection, addDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyAkqjQHT0iX7QCBts_pmkhaOWXNWY7V25U",
+  authDomain:        "mileage-tracker-1dd8f.firebaseapp.com",
+  projectId:         "mileage-tracker-1dd8f",
+  storageBucket:     "mileage-tracker-1dd8f.firebasestorage.app",
+  messagingSenderId: "747490982242",
+  appId:             "1:747490982242:web:7a93e86a45eb9d1105543b"
+};
+
+const appFb = initializeApp(firebaseConfig);
+const db    = getFirestore(appFb);
+const auth  = getAuth(appFb);
+
+const authSection  = document.getElementById('auth-section');
+const importSection = document.getElementById('import-section');
+const userInfo     = document.getElementById('user-info');
+const btnLogin       = document.getElementById('btn-login');
+const btnGoogleLogin = document.getElementById('btn-google-login');
+const iEmail       = document.getElementById('i-email');
+const iPassword    = document.getElementById('i-password');
+const dropzone     = document.getElementById('dropzone');
+const fileInput    = document.getElementById('file-input');
+const fileNameEl   = document.getElementById('file-name');
+const preview      = document.getElementById('preview');
+const btnImport    = document.getElementById('btn-import');
+const statusEl     = document.getElementById('status');
+const formatBtns   = document.querySelectorAll('.format-btn');
+
+let format   = 'json';
+let parsedData = [];
+let currentUid = null;
+
+function onLoginSuccess(user) {
+  currentUid = user.uid;
+  authSection.style.display   = 'none';
+  importSection.style.display = 'block';
+  userInfo.textContent = `ログイン中: ${user.email}`;
+}
+
+// メール/パスワードログイン
+btnLogin.addEventListener('click', async () => {
+  statusEl.textContent = '';
+  btnLogin.disabled    = true;
+  btnLogin.textContent = 'ログイン中...';
+  try {
+    const cred = await signInWithEmailAndPassword(auth, iEmail.value, iPassword.value);
+    onLoginSuccess(cred.user);
+  } catch (e) {
+    statusEl.innerHTML   = `<span class="err">ログインに失敗しました</span>`;
+    btnLogin.disabled    = false;
+    btnLogin.textContent = 'ログイン';
+  }
+});
+
+// Google ログイン
+btnGoogleLogin.addEventListener('click', async () => {
+  statusEl.textContent = '';
+  try {
+    const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+    onLoginSuccess(cred.user);
+  } catch (e) {
+    if (e.code !== 'auth/popup-closed-by-user') {
+      statusEl.innerHTML = `<span class="err">Googleログインに失敗しました</span>`;
+    }
+  }
+});
+
+// フォーマット切替
+formatBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    format = btn.dataset.fmt;
+    formatBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    fileInput.accept = format === 'json' ? '.json' : '.csv';
+    resetFile();
+  });
+});
+
+// ドロップゾーン
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('over');
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+function resetFile() {
+  parsedData = [];
+  fileNameEl.textContent = '';
+  preview.style.display  = 'none';
+  btnImport.disabled     = true;
+  fileInput.value        = '';
+}
+
+function handleFile(file) {
+  if (!file) return;
+  fileNameEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parsedData = format === 'json' ? parseJSON(e.target.result) : parseCSV(e.target.result);
+      showPreview(parsedData);
+      btnImport.disabled = parsedData.length === 0;
+      statusEl.textContent = '';
+    } catch (err) {
+      statusEl.innerHTML = `<span class="err">ファイルの解析に失敗しました: ${err.message}</span>`;
+      btnImport.disabled = true;
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseJSON(text) {
+  const data = JSON.parse(text);
+  if (!Array.isArray(data)) throw new Error('配列形式のJSONが必要です');
+  return data;
+}
+
+function parseCSV(text) {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) throw new Error('データがありません');
+  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+  return lines.slice(1).map(line => {
+    const vals = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || [];
+    const obj  = {};
+    headers.forEach((h, i) => {
+      let v = (vals[i] || '').replace(/^"|"$/g, '').replace(/""/g, '"');
+      if (h === 'startOdometer' || h === 'endOdometer' || h === 'distance') v = parseFloat(v) || 0;
+      obj[h] = v === 'null' ? null : v;
+    });
+    return obj;
+  });
+}
+
+function showPreview(data) {
+  if (data.length === 0) { preview.style.display = 'none'; return; }
+  const keys = ['date', 'dateEnd', 'type', 'startOdometer', 'endOdometer', 'distance', 'route', 'memo'];
+  const header = keys.map(k => `<th>${k}</th>`).join('');
+  const rows = data.slice(0, 5).map(r =>
+    `<tr>${keys.map(k => `<td>${r[k] ?? ''}</td>`).join('')}</tr>`
+  ).join('');
+  preview.innerHTML = `
+    <table><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table>
+    <p style="color:var(--muted);margin-top:6px">${data.length} 件（最初の5件を表示）</p>
+  `;
+  preview.style.display = 'block';
+}
+
+// インポート実行
+btnImport.addEventListener('click', async () => {
+  if (!currentUid || parsedData.length === 0) return;
+  btnImport.disabled    = true;
+  btnImport.textContent = 'インポート中...';
+  statusEl.textContent  = '';
+
+  const col = collection(db, 'users', currentUid, 'mileage_records');
+  let ok = 0, ng = 0;
+
+  for (const r of parsedData) {
+    try {
+      const { id, createdAt, ...rest } = r;
+      await addDoc(col, { ...rest, createdAt: serverTimestamp() });
+      ok++;
+    } catch {
+      ng++;
+    }
+  }
+
+  statusEl.innerHTML = `<span class="ok">✓ ${ok} 件インポート完了</span>${ng ? `<span class="err"> / ${ng} 件失敗</span>` : ''}`;
+  btnImport.disabled    = false;
+  btnImport.textContent = 'インポート実行';
+});
+</script>
+</body>
+</html>
