@@ -72,16 +72,23 @@ const tabBtns          = document.querySelectorAll('.tab-btn');
 const tabPanes         = document.querySelectorAll('.tab-pane');
 
 // Entry form
-const entryForm        = document.getElementById('entry-form');
-const fDate            = document.getElementById('f-date');
-const fDateEnd         = document.getElementById('f-date-end');
-const fRangeToggle     = document.getElementById('f-range-toggle');
-const fSep             = document.getElementById('f-sep');
-const fStart           = document.getElementById('f-start');
-const fEnd             = document.getElementById('f-end');
-const fDistance        = document.getElementById('f-distance');
-const fRoute           = document.getElementById('f-route');
-const fMemo            = document.getElementById('f-memo');
+const entryForm           = document.getElementById('entry-form');
+const fDate               = document.getElementById('f-date');
+const fDateEnd            = document.getElementById('f-date-end');
+const fRangeToggle        = document.getElementById('f-range-toggle');
+const fSep                = document.getElementById('f-sep');
+const fStart              = document.getElementById('f-start');
+const fEnd                = document.getElementById('f-end');
+const fDistance           = document.getElementById('f-distance');
+const fRoute              = document.getElementById('f-route');
+const fMemo               = document.getElementById('f-memo');
+const odometerFields      = document.getElementById('odometer-fields');
+const routeFields         = document.getElementById('route-fields');
+const fOrigin             = document.getElementById('f-origin');
+const fDestination        = document.getElementById('f-destination');
+const fWaypointsContainer = document.getElementById('f-waypoints-container');
+const btnAddWaypoint      = document.getElementById('btn-add-waypoint');
+const btnCalcRoute        = document.getElementById('btn-calc-route');
 
 // Records
 const rMonth           = document.getElementById('r-month');
@@ -243,6 +250,110 @@ tabBtns.forEach(btn => {
 });
 
 // ============================================================
+// Distance Mode Toggle
+// ============================================================
+document.querySelectorAll('input[name="dist-mode"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const isRoute = radio.value === 'route';
+    odometerFields.classList.toggle('hidden', isRoute);
+    routeFields.classList.toggle('hidden', !isRoute);
+    fStart.required = !isRoute;
+    fEnd.required   = !isRoute;
+  });
+});
+
+// 経由地の追加・削除
+btnAddWaypoint.addEventListener('click', () => {
+  const row = document.createElement('div');
+  row.className = 'waypoint-row';
+  row.innerHTML = `
+    <input type="text" placeholder="経由地">
+    <button type="button" class="btn-remove-waypoint" aria-label="削除">×</button>
+  `;
+  row.querySelector('.btn-remove-waypoint').addEventListener('click', () => row.remove());
+  fWaypointsContainer.appendChild(row);
+});
+
+// Places オートコンプリートの初期化
+function initAutocomplete() {
+  if (typeof google === 'undefined') return;
+  [fOrigin, fDestination].forEach(input => {
+    new google.maps.places.Autocomplete(input, { componentRestrictions: { country: 'jp' } });
+  });
+}
+
+// DOMロード後にオートコンプリート初期化（Maps APIのコールバックより遅延する場合のフォールバック）
+window.addEventListener('load', () => { setTimeout(initAutocomplete, 500); });
+
+// ルート距離計算
+btnCalcRoute.addEventListener('click', async () => {
+  const origin      = fOrigin.value.trim();
+  const destination = fDestination.value.trim();
+  if (!origin || !destination) {
+    showToast('出発地と到着地を入力してください');
+    return;
+  }
+
+  const waypoints = Array.from(fWaypointsContainer.querySelectorAll('input'))
+    .map(i => i.value.trim()).filter(Boolean);
+
+  btnCalcRoute.disabled    = true;
+  btnCalcRoute.textContent = '計算中...';
+
+  try {
+    const distanceKm = await calcRouteDistance(origin, destination, waypoints);
+    fDistance.value = distanceKm;
+
+    // 経路欄に自動入力
+    const stops = [origin, ...waypoints, destination];
+    fRoute.value = stops.join(' → ');
+
+    showToast(`距離: ${distanceKm} km`);
+  } catch (err) {
+    showToast('距離の取得に失敗しました: ' + err.message);
+  } finally {
+    btnCalcRoute.disabled    = false;
+    btnCalcRoute.textContent = '距離を計算';
+  }
+});
+
+function calcRouteDistance(origin, destination, waypoints) {
+  return new Promise((resolve, reject) => {
+    const service = new google.maps.DistanceMatrixService();
+
+    if (waypoints.length === 0) {
+      service.getDistanceMatrix(
+        { origins: [origin], destinations: [destination], travelMode: 'DRIVING', region: 'JP' },
+        (res, status) => {
+          if (status !== 'OK') return reject(new Error(status));
+          const el = res.rows[0]?.elements[0];
+          if (el?.status !== 'OK') return reject(new Error('ルートが見つかりません'));
+          resolve(Math.round(el.distance.value / 100) / 10);
+        }
+      );
+    } else {
+      // 経由地がある場合は区間ごとに合計
+      const stops   = [origin, ...waypoints, destination];
+      const origins = stops.slice(0, -1);
+      const dests   = stops.slice(1);
+      service.getDistanceMatrix(
+        { origins, destinations: dests, travelMode: 'DRIVING', region: 'JP' },
+        (res, status) => {
+          if (status !== 'OK') return reject(new Error(status));
+          let total = 0;
+          for (let i = 0; i < origins.length; i++) {
+            const el = res.rows[i]?.elements[i];
+            if (el?.status !== 'OK') return reject(new Error(`区間 ${i + 1} のルートが見つかりません`));
+            total += el.distance.value;
+          }
+          resolve(Math.round(total / 100) / 10);
+        }
+      );
+    }
+  });
+}
+
+// ============================================================
 // Date Range Toggle
 // ============================================================
 function setupRangeToggle(toggle, sep, endInput) {
@@ -277,12 +388,18 @@ function fillLastOdometer() {
 entryForm.addEventListener('submit', async e => {
   e.preventDefault();
 
+  const isRoute = document.querySelector('input[name="dist-mode"]:checked').value === 'route';
   const start   = parseFloat(fStart.value);
   const end     = parseFloat(fEnd.value);
   const dateEnd = fRangeToggle.checked ? fDateEnd.value : null;
+  const distance = parseFloat(fDistance.value);
 
-  if (end < start) {
+  if (!isRoute && end < start) {
     showToast('終了距離はスタート距離以上にしてください');
+    return;
+  }
+  if (isRoute && isNaN(distance)) {
+    showToast('先に「距離を計算」ボタンを押してください');
     return;
   }
   if (dateEnd && dateEnd < fDate.value) {
@@ -294,7 +411,9 @@ entryForm.addEventListener('submit', async e => {
     date:    fDate.value,
     dateEnd,
     type:    document.querySelector('input[name="type"]:checked').value,
-    start, end,
+    start:   isRoute ? null : start,
+    end:     isRoute ? null : end,
+    distanceOverride: isRoute ? distance : null,
     route:   fRoute.value.trim(),
     memo:    fMemo.value.trim()
   });
@@ -305,8 +424,8 @@ entryForm.addEventListener('submit', async e => {
   try {
     await createRecord(data);
     showToast('保存しました');
-    // キャリーオーバー: 終了距離を次のスタートへ
-    fStart.value    = data.endOdometer;
+    // キャリーオーバー: 終了距離を次のスタートへ（オドメーターモードのみ）
+    fStart.value    = data.endOdometer ?? '';
     fEnd.value      = '';
     fDistance.value = '';
     fRoute.value    = '';
@@ -316,6 +435,10 @@ entryForm.addEventListener('submit', async e => {
     fRangeToggle.checked = false;
     fSep.classList.add('hidden');
     fDateEnd.classList.add('hidden');
+    // ルートモードのフィールドをクリア
+    fOrigin.value      = '';
+    fDestination.value = '';
+    fWaypointsContainer.innerHTML = '';
     document.querySelector('input[name="type"][value="private"]').checked = true;
   } catch (err) {
     showToast('保存に失敗しました: ' + err.message);
@@ -578,14 +701,17 @@ function renderSummary() {
 // ============================================================
 // Helpers
 // ============================================================
-function buildRecord({ date, dateEnd, type, start, end, route, memo }) {
+function buildRecord({ date, dateEnd, type, start, end, distanceOverride, route, memo }) {
+  const distance = distanceOverride != null
+    ? distanceOverride
+    : Math.round((end - start) * 10) / 10;
   return {
     date,
     dateEnd:       dateEnd || null,
     type,
-    startOdometer: start,
-    endOdometer:   end,
-    distance:      Math.round((end - start) * 10) / 10,
+    startOdometer: start ?? null,
+    endOdometer:   end   ?? null,
+    distance,
     route,
     memo
   };

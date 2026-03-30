@@ -629,6 +629,55 @@ form {
 .toast.show { opacity: 1; }
 
 /* ============================================================
+   Route / Waypoint
+   ============================================================ */
+.btn-waypoint {
+  width: 100%;
+  padding: 8px;
+  background: white;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.15s;
+}
+.btn-waypoint:hover { background: var(--bg); }
+
+.waypoint-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.waypoint-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+}
+
+.waypoint-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.btn-remove-waypoint {
+  padding: 0 12px;
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-remove-waypoint:hover { background: rgba(239,68,68,0.06); }
+
+/* ============================================================
    Date Range
    ============================================================ */
 .date-label-row {
